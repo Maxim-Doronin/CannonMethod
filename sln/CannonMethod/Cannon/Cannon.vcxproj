@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{9BAC97DC-A0B2-4192-AFD5-A0BB6B531A29}</ProjectGuid>
+    <ProjectGuid>{756266AA-8979-4C93-A546-1825814DF1B2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>CannonMethod</RootNamespace>
+    <RootNamespace>Cannon</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,6 +76,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\Cannon.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
