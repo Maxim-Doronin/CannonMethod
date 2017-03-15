@@ -49,6 +49,7 @@ int shiftLeft(double *&M, int size, const int blockSize, const int init) {
 				M[idx(i, j, size)] = aux[j];
 		}
 	}
+	return 0;
 }
 
 int shiftUP(double *&M, int size, const int blockSize, const int init) {
@@ -66,16 +67,55 @@ int shiftUP(double *&M, int size, const int blockSize, const int init) {
 				M[idx(j, i, size)] = aux[j];
 		}
 	}
+	return 0;
 }
 
+int multProcessPar(double *&A, double *&B, double *&C, int size, int xblock) {
+	int blockSize = size / xblock;
+	int l, m, r, c, k, rbegin, rend, cbegin, cend, idThread;
+	double *sa = nullptr;
+	double *sb = nullptr;
+	double *sc = nullptr;
+#pragma omp parallel default(none) private(l, m, r, c, k, rbegin, rend, cbegin, cend, idThread, sa, sb, sc) shared(A, B, C) num_threads()
+	{
+		idThread = omp_get_thread_num();
+		rbegin = (idThread / xblock) * blockSize;
+		rend = rbegin + blockSize;
 
+		cbegin = (idThread % xblock) * blockSize;
+		cend = cbegin + blockSize;
 
-int cannonPar(double *&A, double *&B, double *&C, int xblock) {
-	for (int i = 0; i < xblock; i++) {
-		multProcessPar();
-		shiftLeft();
-		shiftUP();		
+		sa = new double[blockSize * blockSize];
+		sb = new double[blockSize * blockSize];
+		sc = new double[blockSize * blockSize];
+
+		for (r = rbegin, l = 0; r < rend; r++, l++) {
+			for (c = cbegin, m = 0; c < cend; c++, m++) {
+				sa[idx(l, m, blockSize)] = A[idx(r, c, size)];
+				sb[idx(l, m, blockSize)] = B[idx(r, c, size)];
+				sc[idx(l, m, blockSize)] = C[idx(r, c, size)];
+			}
+		}
+
+		matrixMult(sa, sb, sc, blockSize);
+
+		for (r = rbegin, l = 0; r < rend; r++, l++) {
+			for (c = cbegin, m = 0; c < cend; c++, m++)
+				C[idx(r, c, size)] = sc[idx(l, m, blockSize)];
+		}
 	}
+
+	return 0;
+}
+
+int cannonPar(double *&A, double *&B, double *&C, int size, int xblock) {
+	int blockSize = size / xblock;
+	for (int i = 0; i < xblock; i++) {
+		multProcessPar(A, B, C, size, xblock);
+		shiftLeft(A, size, blockSize, 0);
+		shiftUP(B, size, blockSize, 0);		
+	}
+	return 0;
 }
 
 int main(int argc, char** argv) {
