@@ -34,93 +34,13 @@ int matrixMult(double *&A, double *&B, double *&C, int size) {
 	return 0;
 }
 
-int shiftLeft(double *&M, int size, const int blockSize, const int init) {
-	double *aux = nullptr;
-	aux = new double[size];
-	for (int i = 0; i < size; i++)
-		aux[i] = 0;
-	int step = blockSize;
-
-	for (int k = 0, s = 0; k < size; k += blockSize, s++) {
-		for (int i = k; i < (k + blockSize); i++) {
-			if (init > 0)
-				step = s * blockSize;
-			for (int j = 0; j < size; j++)
-				aux[j] = M[idx(i, ((j + step) % size), size)];
-			for (int j = 0; j < size; j++)
-				M[idx(i, j, size)] = aux[j];
-		}
-	}
-	delete[]aux;
-	return 0;
-}
-
-int shiftRight(double *&M, int size, const int blockSize, const int numthreads) {
-	double *aux = nullptr;
-	aux = new double[size];
-	for (int i = 0; i < size; i++)
-		aux[i] = 0;
-
-	for (int k = 0, s = numthreads; k < size; k += blockSize, s--) {
-		for (int i = k; i < (k + blockSize); i++) {
-			int step = s * blockSize;
-			for (int j = 0; j < size; j++)
-				aux[j] = M[idx(i, ((j + step) % size), size)];
-			for (int j = 0; j < size; j++)
-				M[idx(i, j, size)] = aux[j];
-		}
-	}
-	delete[]aux;
-	return 0;
-}
-
-int shiftUp(double *&M, int size, const int blockSize, const int init) {
-	double *aux = nullptr;
-	aux = new double[size];
-	for (int i = 0; i < size; i++)
-		aux[i] = 0;
-	int step = blockSize;
-
-	for (int k = 0, s = 0; k < size; k += blockSize, s++) {
-		for (int i = k; i < (k + blockSize); i++) {
-			if (init > 0)
-				step = s * blockSize;
-			for (int j = 0; j < size; j++)
-				aux[j] = M[idx(((j + step) % size), i, size)];
-			for (int j = 0; j < size; j++)
-				M[idx(j, i, size)] = aux[j];
-		}
-	}
-	delete[]aux;
-	return 0;
-}
-
-int shiftDown(double *&M, int size, const int blockSize, const int numthreads) {
-	double *aux = nullptr;
-	aux = new double[size];
-	for (int i = 0; i < size; i++)
-		aux[i] = 0;
-	
-	for (int k = 0, s = numthreads; k < size; k += blockSize, s--) {
-		for (int i = k; i < (k + blockSize); i++) {
-			int step = s * blockSize;
-			for (int j = 0; j < size; j++)
-				aux[j] = M[idx(((j + step) % size), i, size)];
-			for (int j = 0; j < size; j++)
-				M[idx(j, i, size)] = aux[j];
-		}
-	}
-	delete[]aux;
-	return 0;
-}
-
-int multProcessPar(double *&A, double *&B, double *&C, const int size, const int numthreads) {
+int multProcessPar(double *&A, double *&B, double *&C, const int size, const int numthreads, int i) {
 	int blockSize = size / numthreads;
 	int l, m, r, c, k, rbegin, rend, cbegin, cend, idThread;
 	double *sa = nullptr;
 	double *sb = nullptr;
 	double *sc = nullptr;
-#pragma omp parallel default(none) private(l, m, r, c, k, rbegin, rend, cbegin, cend, idThread, sa, sb, sc) shared(A, B, C, size, blockSize, numthreads) num_threads(numthreads * numthreads)
+#pragma omp parallel default(none) private(l, m, r, c, k, rbegin, rend, cbegin, cend, idThread, sa, sb, sc) shared(A, B, C, size, blockSize, numthreads, i) num_threads(numthreads * numthreads)
 	{
 		idThread = omp_get_thread_num();
 		rbegin = (idThread / numthreads) * blockSize;
@@ -135,15 +55,15 @@ int multProcessPar(double *&A, double *&B, double *&C, const int size, const int
 
 		for (r = rbegin, l = 0; r < rend; r++, l++) {
 			for (c = cbegin, m = 0; c < cend; c++, m++) {
-				sa[idx(l, m, blockSize)] = A[idx(r, c, size)];
-				sb[idx(l, m, blockSize)] = B[idx(r, c, size)];
+				sa[idx(l, m, blockSize)] = A[idx(r, (c + i*blockSize + (idThread / numthreads) * blockSize) % size, size)];
+				sb[idx(l, m, blockSize)] = B[idx((r + i*blockSize + (idThread % numthreads) * blockSize) % size, c, size)];
 			}
 		}
 
 		matrixMult(sa, sb, sc, blockSize);
 		for (r = rbegin, l = 0; r < rend; r++, l++) {
 			for (c = cbegin, m = 0; c < cend; c++, m++)
-				C[idx(r, c, size)] += sc[idx(l, m, blockSize)];
+				C[idx(r, c , size)] += sc[idx(l, m, blockSize)];
 		}
 		
 		delete[]sa;
@@ -154,7 +74,7 @@ int multProcessPar(double *&A, double *&B, double *&C, const int size, const int
 	return 0;
 }
 
-int multProcessCon(double *&A, double *&B, double *&C, int size, int numthreads) {
+int multProcessCon(double *&A, double *&B, double *&C, int size, int numthreads, int i) {
 	int blockSize = size / numthreads;
 	int l, m, r, c, k, rbegin, rend, cbegin, cend, idThread;
 	double *sa = nullptr;
@@ -173,8 +93,8 @@ int multProcessCon(double *&A, double *&B, double *&C, int size, int numthreads)
 
 		for (r = rbegin, l = 0; r < rend; r++, l++) {
 			for (c = cbegin, m = 0; c < cend; c++, m++) {
-				sa[idx(l, m, blockSize)] = A[idx(r, c, size)];
-				sb[idx(l, m, blockSize)] = B[idx(r, c, size)];
+				sa[idx(l, m, blockSize)] = A[idx(r, (c + i*blockSize + (idThread / numthreads) * blockSize) % size, size)];
+				sb[idx(l, m, blockSize)] = B[idx((r + i*blockSize + (idThread % numthreads) * blockSize) % size, c, size)];
 			}
 		}
 
@@ -194,29 +114,29 @@ int multProcessCon(double *&A, double *&B, double *&C, int size, int numthreads)
 
 int cannonPar(double *&A, double *&B, double *&C, int size, int numthreads) {
 	int blockSize = size / numthreads;
-	shiftLeft(A, size, blockSize, 1);
-	shiftUp(B, size, blockSize, 1);
+	//shiftLeft(A, size, blockSize, 1);
+	//shiftUp(B, size, blockSize, 1);
 	for (int i = 0; i < numthreads; i++) {
-		multProcessPar(A, B, C, size, numthreads);
-		shiftLeft(A, size, blockSize, 0);
-		shiftUp(B, size, blockSize, 0);	
+		multProcessPar(A, B, C, size, numthreads, i);
+		//shiftLeft(A, size, blockSize, 0);
+		//shiftUp(B, size, blockSize, 0);	
 	}
-	shiftRight(A, size, blockSize, numthreads);
-	shiftDown(B, size, blockSize, numthreads);
+	//shiftRight(A, size, blockSize, numthreads);
+	//shiftDown(B, size, blockSize, numthreads);
 	return 0;
 }
 
 int cannonCon(double *&A, double *&B, double *&C, int size, int numthreads) {
 	int blockSize = size / numthreads;
-	shiftLeft(A, size, blockSize, 1);
-	shiftUp(B, size, blockSize, 1);
+	//shiftLeft(A, size, blockSize, 1);
+	//shiftUp(B, size, blockSize, 1);
 	for (int i = 0; i < numthreads; i++) {
-		multProcessCon(A, B, C, size, numthreads);
-		shiftLeft(A, size, blockSize, 0);
-		shiftUp(B, size, blockSize, 0);
+		multProcessCon(A, B, C, size, numthreads, i);
+		//shiftLeft(A, size, blockSize, 0);
+		//shiftUp(B, size, blockSize, 0);
 	}
-	shiftRight(A, size, blockSize, numthreads);
-	shiftDown(B, size, blockSize, numthreads);
+	//shiftRight(A, size, blockSize, numthreads);
+	//shiftDown(B, size, blockSize, numthreads);
 	return 0;
 }
 
@@ -239,6 +159,10 @@ int main(int argc, char** argv) {
 	size = atoi(argv[1]);
 	if (argc == 3)
 		numthreads = atoi(argv[2]);
+	if (size%numthreads != 0) {
+		cout << "Error!" << endl;
+		return -1;
+	}
 
 	cout << endl;
 	cout << "---------Cannon algorithm for matrix multiplication-----------" << endl << endl;
@@ -262,19 +186,16 @@ int main(int argc, char** argv) {
 	double startTimeTM = omp_get_wtime();
 	matrixMult(A, B, C, size);
 	double endTimeTM = omp_get_wtime();
-	//matrixPrint(C, size);
 	cout << "Trivial mult time: " << endTimeTM - startTimeTM << endl;
 
 	double startTimeCC = omp_get_wtime();
 	cannonCon(A, B, C2, size, numthreads);
 	double endTimeCC = omp_get_wtime();
-	//matrixPrint(C2, size);
 	cout << "Cannon consistent time: " << endTimeCC - startTimeCC << endl;
 
 	double startTimeCP = omp_get_wtime();
 	cannonPar(A, B, C1, size, numthreads);
 	double endTimeCP = omp_get_wtime();
-	//matrixPrint(C1, size);
 	cout << "Cannon parallel time: " << endTimeCP - startTimeCP << endl;
 
 	cout << "Boost: " << (endTimeCC - startTimeCC) / (endTimeCP - startTimeCP) << endl;
