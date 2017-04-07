@@ -70,6 +70,46 @@ int multProcessPar(double *&A, double *&B, double *&C, const int size, const int
 		delete[]sb;
 		delete[]sc;
 	}
+	/*
+	{
+		idThread = omp_get_thread_num();
+		rbegin = (idThread / numthreads) * blockSize;
+		rend = rbegin + blockSize;
+
+		cbegin = (idThread % numthreads) * blockSize;
+		cend = cbegin + blockSize;
+
+		//sa = new double[blockSize * blockSize];
+		//sb = new double[blockSize * blockSize];
+		//sc = new double[blockSize * blockSize];
+
+		int col = cbegin + i*blockSize + (idThread / numthreads) * blockSize;
+		int row = rbegin + i*blockSize + (idThread % numthreads) * blockSize;
+		for (r = rbegin; r < rend; r++) {
+			for (c = cbegin; c < cend; c++) {
+				//double a = A[idx(r, (c + i*blockSize + (idThread / numthreads) * blockSize) % size, size)];
+				//double b = B[idx((r + i*blockSize + (idThread % numthreads) * blockSize) % size, c, size)];
+				for (int k = 0; k < blockSize; k++) {
+					double a = A[idx(r, (col + k) % size, size)];
+					double b = B[idx((row + k) % size, c, size)];
+					C[idx(r, c, size)] += a * b;
+				}
+
+
+			}
+		}
+		
+		matrixMult(sa, sb, sc, blockSize);
+		for (r = rbegin, l = 0; r < rend; r++, l++) {
+		for (c = cbegin, m = 0; c < cend; c++, m++)
+		C[idx(r, c , size)] += sc[idx(l, m, blockSize)];
+		}
+		
+
+		//delete[]sa;
+		//delete[]sb;
+		//delete[]sc;
+	} */
 
 	return 0;
 }
@@ -114,29 +154,17 @@ int multProcessCon(double *&A, double *&B, double *&C, int size, int numthreads,
 
 int cannonPar(double *&A, double *&B, double *&C, int size, int numthreads) {
 	int blockSize = size / numthreads;
-	//shiftLeft(A, size, blockSize, 1);
-	//shiftUp(B, size, blockSize, 1);
 	for (int i = 0; i < numthreads; i++) {
 		multProcessPar(A, B, C, size, numthreads, i);
-		//shiftLeft(A, size, blockSize, 0);
-		//shiftUp(B, size, blockSize, 0);	
 	}
-	//shiftRight(A, size, blockSize, numthreads);
-	//shiftDown(B, size, blockSize, numthreads);
 	return 0;
 }
 
 int cannonCon(double *&A, double *&B, double *&C, int size, int numthreads) {
 	int blockSize = size / numthreads;
-	//shiftLeft(A, size, blockSize, 1);
-	//shiftUp(B, size, blockSize, 1);
 	for (int i = 0; i < numthreads; i++) {
 		multProcessCon(A, B, C, size, numthreads, i);
-		//shiftLeft(A, size, blockSize, 0);
-		//shiftUp(B, size, blockSize, 0);
 	}
-	//shiftRight(A, size, blockSize, numthreads);
-	//shiftDown(B, size, blockSize, numthreads);
 	return 0;
 }
 
