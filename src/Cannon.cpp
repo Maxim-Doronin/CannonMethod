@@ -28,22 +28,20 @@ private:
     double *A;
     double *B;
     double *C;
+    int blockSize;
     int xSize;
 public:
     CannonTask(double *_A, double *_B, double *_C,
-        int _rowStartIdx, int _colStartIdx, int _size, int _xSize) :
+        int _rowStartIdx, int _colStartIdx, int _size, int _blockSize, int _xSize) :
         A(_A), B(_B), C(_C), rowStartIdx(_rowStartIdx), colStartIdx(_colStartIdx),
-        size(_size), xSize(_xSize) {};
+        size(_size), blockSize(_blockSize), xSize(_xSize) {};
     void operator()() const {
-        int blockSize = size / xSize;
-        for (int x = 0; x < xSize; x++) {
+        for (int x = 0; x < xSize; x++)
             for (int i = rowStartIdx * blockSize; i < (rowStartIdx + 1)*blockSize; i++)
                 for (int j = colStartIdx * blockSize; j < (colStartIdx + 1)*blockSize; j++)
                     for (int k = x * blockSize; k < (x + 1)*blockSize; k++) {
                         C[idx(i, j, size)] += A[idx(i, k, size)] * B[idx(k, j, size)];
                     }
-       }
-        
     }
 };
 
@@ -198,11 +196,11 @@ int cannonCon(double *&A, double *&B, double *&C, int size, int xSize) {
 	return 0;
 }
 
-int cannonTBB(double *&A, double *&B, double *&C, int size, int xSize) {
-    task_group taskGroup;
+int cannonTBB(double *&A, double *&B, double *&C, int size, int xSize, task_group &taskGroup) {
+    int blockSize = size / xSize;
     for (int i = 0; i < xSize; i++)
         for (int j = 0; j < xSize; j++)
-            taskGroup.run(CannonTask(A, B, C, i, j, size, xSize));
+            taskGroup.run(CannonTask(A, B, C, i, j, size, blockSize, xSize));
     taskGroup.wait();
     return 0;
 }
@@ -255,7 +253,7 @@ int main(int argc, char** argv) {
 	matrixGenerate(B, size);
 	
 	double startTimeTM = omp_get_wtime();
-	matrixMult(A, B, C, size);
+	//matrixMult(A, B, C, size);
 	double endTimeTM = omp_get_wtime();
 	cout << "Trivial mult time: " << endTimeTM - startTimeTM << endl;
 
@@ -268,12 +266,15 @@ int main(int argc, char** argv) {
 	cannonPar(A, B, C1, size, xSize);
 	double endTimeCP = omp_get_wtime();
 	cout << "OpenMP parallel time: " << endTimeCP - startTimeCP << endl;
+    //matrixPrint(C1, size);
     
-    task_scheduler_init init();
+    task_scheduler_init init(numthreads);
+    task_group taskGroup;
     double startTimeTBB = omp_get_wtime();
-    cannonTBB(A, B, C3, size, xSize);
+    cannonTBB(A, B, C3, size, xSize, taskGroup);
     double endTimeTBB = omp_get_wtime();
     cout << "TBB parallel time   : " << endTimeTBB - startTimeTBB << endl;
+    //matrixPrint(C3, size);
 
 	cout << "Boost OpenMP: " << (endTimeCC - startTimeCC) / (endTimeCP - startTimeCP) << endl;
     cout << "Boost TBB   : " << (endTimeCC - startTimeCC) / (endTimeTBB - startTimeTBB) << endl;
